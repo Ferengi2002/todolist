@@ -1,17 +1,36 @@
 import 'package:flutter/material.dart';
 import 'package:todolistapp/models/task.dart';
 
+enum TaskFilter { all, completed, pending }
+
 class TaskProvider extends ChangeNotifier {
   final List<Task> _tasks = [];
 
-  List<Task> get tasks => _tasks;
+  // List<Task> get tasks => _tasks;
+
+  TaskFilter _filter = TaskFilter.all;
+
+  List<Task> get tasks {
+    switch (_filter) {
+      case TaskFilter.completed:
+        return _tasks.where((task) => task.isCompleted).toList();
+      case TaskFilter.pending:
+        return _tasks.where((task) => !task.isCompleted).toList();
+      default:
+        return _tasks;
+    }
+  }
+
+  TaskFilter get filter => _filter;
+
+  void setFilter(TaskFilter filter) {
+    _filter = filter;
+    notifyListeners();
+  }
 
   void addTask(String title, String category) {
-    final newTask = Task(
-      id: DateTime.now().toString(),
-      title: title,
-      category: category,
-    );
+    final newTask =
+        Task(id: DateTime.now().toString(), title: title, category: category);
     _tasks.add(newTask);
     notifyListeners();
   }
@@ -24,11 +43,17 @@ class TaskProvider extends ChangeNotifier {
     }
   }
 
-  void updateTask(Task task) {
-    final index = _tasks.indexWhere((t) => t.id == task.id);
-    if (index != -1) {
-      _tasks[index] = task;
-      notifyListeners();
+  void editTask(String id, String newTitle, String newCategory) {
+    final taskIndex = _tasks.indexWhere((task) => task.id == id);
+    if (taskIndex != -1) {
+      _tasks[taskIndex] = Task(
+        id: id,
+        title: newTitle,
+        category: newCategory,
+        isCompleted:
+            _tasks[taskIndex].isCompleted, // Mantenemos el estado completado
+      );
+      notifyListeners(); // Notificamos a los listeners que el estado ha cambiado
     }
   }
 
