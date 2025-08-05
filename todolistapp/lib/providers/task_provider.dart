@@ -1,23 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:hive/hive.dart';
 import 'package:todolistapp/models/task.dart';
 
 enum TaskFilter { all, completed, pending }
 
 class TaskProvider extends ChangeNotifier {
-  final List<Task> _tasks = [];
-
-  // List<Task> get tasks => _tasks;
-
+  final Box<Task> _taskBox = Hive.box<Task>('tasksBox');
   TaskFilter _filter = TaskFilter.all;
 
   List<Task> get tasks {
+    final allTasks = _taskBox.values.toList();
     switch (_filter) {
       case TaskFilter.completed:
-        return _tasks.where((task) => task.isCompleted).toList();
+        return allTasks.where((task) => task.isCompleted).toList();
       case TaskFilter.pending:
-        return _tasks.where((task) => !task.isCompleted).toList();
+        return allTasks.where((task) => !task.isCompleted).toList();
       default:
-        return _tasks;
+        return allTasks;
     }
   }
 
@@ -29,36 +28,54 @@ class TaskProvider extends ChangeNotifier {
   }
 
   void addTask(String title, String category) {
-    final newTask =
-        Task(id: DateTime.now().toString(), title: title, category: category);
-    _tasks.add(newTask);
+    final newTask = Task(
+      id: DateTime.now().toString(),
+      title: title,
+      category: category,
+    );
+    _taskBox.add(newTask);
     notifyListeners();
   }
 
   void toggleTaskStatus(String id) {
-    final taskIndex = _tasks.indexWhere((task) => task.id == id);
-    if (taskIndex != -1) {
-      _tasks[taskIndex].isCompleted = !_tasks[taskIndex].isCompleted;
+    final key = _taskBox.keys.firstWhere(
+      (k) => _taskBox.get(k)?.id == id,
+      orElse: () => null,
+    );
+    if (key != null) {
+      final task = _taskBox.get(key)!;
+      task.isCompleted = !task.isCompleted;
+      _taskBox.put(key, task); // actualizar
       notifyListeners();
     }
   }
 
   void editTask(String id, String newTitle, String newCategory) {
-    final taskIndex = _tasks.indexWhere((task) => task.id == id);
-    if (taskIndex != -1) {
-      _tasks[taskIndex] = Task(
-        id: id,
+    final key = _taskBox.keys.firstWhere(
+      (k) => _taskBox.get(k)?.id == id,
+      orElse: () => null,
+    );
+    if (key != null) {
+      final oldTask = _taskBox.get(key)!;
+      final updatedTask = Task(
+        id: oldTask.id,
         title: newTitle,
         category: newCategory,
-        isCompleted:
-            _tasks[taskIndex].isCompleted, // Mantenemos el estado completado
+        isCompleted: oldTask.isCompleted,
       );
-      notifyListeners(); // Notificamos a los listeners que el estado ha cambiado
+      _taskBox.put(key, updatedTask);
+      notifyListeners();
     }
   }
 
   void deleteTask(String id) {
-    _tasks.removeWhere((task) => task.id == id);
-    notifyListeners();
+    final key = _taskBox.keys.firstWhere(
+      (k) => _taskBox.get(k)?.id == id,
+      orElse: () => null,
+    );
+    if (key != null) {
+      _taskBox.delete(key);
+      notifyListeners();
+    }
   }
 }
